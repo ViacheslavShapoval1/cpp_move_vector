@@ -1,0 +1,60 @@
+/*
+Author: Viacheslav Shapoval
+Title: Templated Vector
+Description: Testing framework evaluating MoveVector<T> functionality.
+Date Created: 9/12/2026
+Date Last Modified: 9/14/2026
+*/
+
+1. OVERVIEW
+This document outlines the testing strategy for the MoveVector<T> class. The 
+driver is designed to rigorously verify memory safety, exception handling, and 
+standard library compliance across 28 distinct test cases.
+
+2. TEST FRAMEWORK: THE `RUN_TEST` MACRO
+To maintain a clean, readable, and highly modular test driver, the evaluation 
+logic is abstracted into a custom preprocessor macro:
+
+    #define RUN_TEST(num, name, cond) \
+        if (cond) { \
+            cout << "PASS: " << num << ". " << name << "\n"; \
+            ++passed; \
+        } else { \
+            cout << "FAIL: " << num << ". " << name << "\n"; \
+        } \
+        ++total;
+
+Why this approach?
+* Scalability: turns a 300-line testing suite into a concise list of single-line assertions.
+* Isolation: Evaluates boolean conditions instantly keeping the repository lightweight.
+* Compile-Time Integration: As a preprocessor directive, it executes raw text 
+  replacement before compilation, allowing seamless integration with local 
+  scope variables (like `passed` and `total`) without passing them by reference.
+
+3. TEST PHASES
+The driver is broken down into five sequential phases to ensure foundational 
+stability before testing complex memory operations.
+
+* Phase 1: Construction & Capacity
+  Validates default, size, and fill constructors. Ensures initial capacity and 
+  size states are perfectly accurate.
+
+* Phase 2: Element Access & Iteration
+  Verifies pointer-based iterators, range-based for-loop compatibility, and 
+  boundary safety via std::out_of_range exception testing.
+
+* Phase 3: Modification & Memory Growth
+  Tests push_back (lvalue and rvalue), perfect forwarding (emplace_back), 
+  and strict capacity growth rules (doubling logic).
+
+* Phase 4: The Rule of Five & Ownership
+  Verifies deep copying, ownership transfer via move semantics, and constant-
+  time swapping. Includes bypass tests for self-assignment and self-moving.
+
+* Phase 5: Advanced Lifetimes & Exception Safety
+  Uses custom struct injections (e.g., FailsOnCopyType, MemoryLeakTracker) to 
+  prove zero memory leaks exist upon destruction and that the container 
+  provides the Strong Exception Guarantee during failed reallocations.
+
+4. VALIDATION
+The suite is designed to compile cleanly under C++11 with zero warnings and zero memory leaks.

@@ -1,0 +1,61 @@
+/*
+Author: Viacheslav Shapoval
+Title: Templated Vector
+Description: Implementation of a templated dynamic-array class named MoveVector<T>.
+Date Created: 9/12/2026
+Date Last Modified: 9/14/2026
+*/
+
+1. ARCHITECTURAL OVERVIEW
+MoveVector<T> is a highly optimized, dynamically resizing array designed to 
+mimic the core functionality of std::vector. The primary engineering goal of 
+this project was manual memory management, strict adherence to C++11 move 
+semantics, and robust exception safety.
+
+2. DECOUPLING ALLOCATION FROM CONSTRUCTION
+A standard array (`T* arr = new T[size]`) blindly allocates memory and forces 
+default construction on every element simultaneously. This is inefficient and 
+prohibits the storage of objects lacking a default constructor. 
+
+This project solves this by utilizing `std::allocator` and `std::allocator_traits`:
+* Raw Memory: `v_alloc.allocate(capacity)` acquires uninitialized memory space 
+  without constructing objects.
+* Deliberate Construction: `std::allocator_traits<...>::construct` builds 
+  objects in-place only when explicitly requested (e.g., via `push_back`).
+* Granular Destruction: Objects are destroyed individually upon removal 
+  (`pop_back` or `clear`) without releasing the underlying memory block.
+
+3. PERFECT FORWARDING (emplace_back)
+To eliminate the overhead of creating temporary objects just to copy them into 
+the vector, `emplace_back` uses variadic templates and perfect forwarding:
+
+    template <typename... Args>
+    void emplace_back(Args&&... args) {
+        // ...
+        v_alloc_traits::construct(v_alloc, &v_data[v_size], 
+                                  std::forward<Args>(args)...);
+    }
+
+* `Args&&`: Acts as a forwarding reference (universal reference).
+* `std::forward`: Preserves the exact value category (lvalue or rvalue) of the 
+  arguments passed by the user, routing them directly to the object's constructor 
+  inside the vector's memory space.
+
+4. OPTIMAL RELOCATION & EXCEPTION SAFETY
+When capacity is exhausted, the vector must allocate a new memory block and 
+transfer existing elements.
+
+* move_if_noexcept: The reallocation logic evaluates element types at compile 
+  time. If an element has a `noexcept` move constructor, the vector rapidly 
+  moves it. If the move constructor might throw, it falls back to deep copying.
+* Strong Exception Guarantee: If an element throws an exception during a 
+  reallocation transfer, the vector catches the exception, destroys the 
+  partially built new memory block, and leaves the original vector state 
+  completely untouched.
+
+5. COMPLEXITY
+* O(1) Amortized: push_back, emplace_back[cite: 1].
+* O(1) Constant: operator[], at, front, back, pop_back, capacity, size, empty,
+  swap, move construction, move assignment[cite: 1].
+* O(N) Linear: clear, reserve, resize, shrink_to_fit, copy construction,
+  copy assignment[cite: 1].
